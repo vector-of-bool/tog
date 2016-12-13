@@ -6,12 +6,12 @@ defmodule Tog.Client do
 
     Logger.configure_backend(:console, format: "$time [$level$levelpad] $message\n")
     children = [
-      # worker(Tog.Client.Worker, [arg1, arg2, arg3]),
-      worker(Tog.Client.Cache, []),
-      worker(Tog.Client.Compiler, []),
-      worker(Tog.Client.Main, []),
-      supervisor(Task.Supervisor, [[name: Tog.ClientSupervisor]]),
-      worker(Tog.Client.Acceptor, []),
+      # The cache service manages the cache
+      supervisor(Tog.Client.Main, []),
+      # worker(Tog.Client.Cache, []),
+      # The compiler service processes compile requests
+      # worker(Tog.Client.Compiler, []),
+      supervisor(Tog.Client.Acceptor, []),
     ]
 
     opts = [strategy: :one_for_one, name: Tog.Client.Supervisor]

@@ -7,7 +7,13 @@ end
 defmodule Tog.Client.Compiler do
   alias Tog.Client.{ExecutionResult, Cache, Compiler}
   def start_link do
-    GenServer.start_link(__MODULE__, :ok, name: Tog.Client.Compiler)
+    import Supervisor.Spec
+    children = [
+      supervisor(Task.Supervisor, [[name: Tog.Client.Compiler.TaskSupervisor]]),
+      worker(Tog.Client.Cache, []),
+      worker(GenServer, [__MODULE__, :ok, [name: Tog.Client.Compiler]]),
+    ]
+    Supervisor.start_link(children, strategy: :one_for_one, name: Tog.Client.Compiler.Supervisor)
   end
 
   def init(:ok), do: {:ok, %{}}
@@ -15,7 +21,7 @@ defmodule Tog.Client.Compiler do
   def terminate(_reason, _state), do: nil
 
   def handle_call({:compile, inv = {[program|args], env, cwd}}, from, state) do
-    Task.Supervisor.start_child(Tog.ClientSupervisor, fn ->
+    Task.Supervisor.start_child(Tog.Client.Compiler.TaskSupervisor, fn ->
       info "Looking up compile"
       case Cache.lookup_direct(inv) do
         {:hit, res} -> {:reply, res, state}
@@ -51,7 +57,7 @@ defmodule Tog.Client.Compiler do
   defp _output_file(program, args, cwd) do
     relative = if String.ends_with?(program, "cl.exe") do
       hd Enum.filter_map(args, fn
-        "/Fo" <> outfile -> true
+        "/Fo" <> _outfile -> true
         _ -> false
       end, fn
         "/Fo" <> opath -> opath
